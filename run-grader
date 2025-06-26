@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+import os
+import json
+import requests
+from subprocess import Popen, PIPE
+from threading import Timer
+
+
+def run_tests():
+    tests = [
+        ('ManchesterDecoder', 'testcases.in', 'testcases.sfd', 4, 10),
+        ('SFDLocator', 'testcases.sfd', 'testcases.out', 4, 10),
+    ]
+    scores = {}
+
+    os.system('make clean')
+    if os.system('make') != 0:
+        print('ABORTANDO TESTES: falha ao sintetizar! '
+              'Certifique-se que não há erros de compilação e que sua lógica '
+              'consegue executar rápido o suficiente com relação ao clock '
+              'fornecido.')
+        return {}
+
+    for test, in_filename, out_filename, weight, timeout in tests:
+        test_bin = f'Test{test}.exe'
+        scores[test] = 0
+
+        p = Popen(['make', test_bin], encoding='utf-8')
+        if p.wait() != 0:
+            print(f"FALHA AO COMPILAR: pulando teste '{test}'.")
+            continue
+
+        print(f'Executando ./{test_bin}...')
+        with open(in_filename) as f:
+            p = Popen([f'./{test_bin}'],
+                      encoding='utf-8',
+                      stdin=f,
+                      stdout=PIPE)
+
+        def timeout_handler():
+            print(f"TIMEOUT: o teste demorou mais que o limite de {timeout} segundos")
+            p.kill()
+        timer = Timer(timeout, timeout_handler)
+        try:
+            timer.start()
+
+            assert p.stdout is not None
+
+            with open(out_filename) as f:
+                expected = ''.join(s.strip() for s in f)
+            obtained = ''.join(s.strip() for s in p.stdout if 'Verilog $finish' not in s)
+
+            min_len = min(len(expected), len(obtained))
+            for i, (x, y) in enumerate(zip(expected, obtained)):
+                if x != y:
+                    context_start = max(0, i - 8)
+                    context_end = min(min_len - 1, i + 8)
+                    print(f'DIFFERENCE at position {i+1}')
+                    print(f'Expected: {expected[context_start:context_end]}')
+                    print(f'Obtained: {obtained[context_start:context_end]}')
+                    print(f'          {' '*(i-context_start)}^')
+                    break
+            else:
+                expected_tail = expected[min_len:]
+                obtained_tail = obtained[min_len:]
+                if expected_tail != '':
+                    print(f'MISSING DATA at the end: {expected_tail}')
+                if obtained_tail != '':
+                    print(f'EXCESS DATA at the end: {obtained_tail}')
+
+            if p.wait() == 0:
+                if expected == obtained:
+                    print("OK")
+                    scores[test] = weight
+                else:
+                    print("FAIL")
+                    scores[test] = 0
+        finally:
+            timer.cancel()
+
+    return scores
+
+
+def notify():
+    if not os.getenv('GITHUB_TOKEN'):
+        # não notificar se não estiver dentro do GitHub CI
+        return
+    r = requests.post(
+        'https://script.google.com/macros/s/AKfycbxpNSe_XcKYWRr9dIOvbYhd8sZATdlXlHM3_78Wk0rjgGx6uRGg2UJFVSFVDU3zdb0l/exec',
+        json={'repo': os.getenv('GITHUB_REPOSITORY'),
+              'token': os.getenv('GITHUB_TOKEN'),
+              'run_id': os.getenv('GITHUB_RUN_ID'),
+              })
+    print(r)
+    print(r.text)
+
+
+def main():
+    scores = run_tests()
+    print(json.dumps({'scores': scores}))
+    notify()
+
+
+if __name__ == '__main__':
+    main()
