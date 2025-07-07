@@ -49,7 +49,7 @@ Ou seja, seu módulo deve:
 Implemente o módulo [mkSFDLocator](SFDLocator.bsv), que recebe os bits decodificados do `mkManchesterDecoder` e localiza o fim do Delimitador de Início de Quadro (SFD - *Start Frame Delimiter*). A saída do módulo deve conter apenas os bits do quadro Ethernet útil, descartando o preâmbulo e o SFD.
 
 A estrutura de um [quadro Ethernet](https://en.wikipedia.org/wiki/Ethernet_frame#Structure) começa com:
--   **Preâmbulo (7 bytes):** Uma sequência de bits `1` e `0` alternados. Essa sequência necessariamente será recebida completo pelo módulo, pois pode ser detectada tardiamente pelo `mkFrameDelimiter`.
+-   **Preâmbulo (7 bytes):** Uma sequência de bits `1` e `0` alternados. Essa sequência não necessariamente será recebida completa pelo módulo, pois pode ser detectada tardiamente pelo `mkFrameDelimiter`.
 -   **SFD (1 byte):** A sequência `10101011`.
 
 Seu módulo deve processar os bits de entrada e, ao detectar a sequência `11` (que marca o final do SFD), deve começar a passar os bits subsequentes para a saída.
