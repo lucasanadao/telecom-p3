@@ -86,7 +86,7 @@ def notify():
         # não notificar se não estiver dentro do GitHub CI
         return
     r = requests.post(
-        'https://script.google.com/macros/s/AKfycbxpNSe_XcKYWRr9dIOvbYhd8sZATdlXlHM3_78Wk0rjgGx6uRGg2UJFVSFVDU3zdb0l/exec',
+        'https://script.google.com/macros/s/AKfycbwxRL2ZxtEtxW2ULYUrdk_7zpvMJAnypABdPflMzPTAPDD3n9zCnCiX88V5S2VYT3T64A/exec',
         json={'repo': os.getenv('GITHUB_REPOSITORY'),
               'token': os.getenv('GITHUB_TOKEN'),
               'run_id': os.getenv('GITHUB_RUN_ID'),
