@@ -9,40 +9,56 @@ module mkManchesterDecoder(FrameBitProcessor);
 
     interface Put in;
         method Action put(Maybe#(Bit#(1)) in);
-            if (in matches tagged Valid .bit) begin
-                if (prev matches tagged Valid .prevBit) begin
+            Bit#(3) new_i = i;
+            Bit#(1) output_val = ?;
+            
+            if (!isValid(in)) begin
+                // Reset no final do quadro
+                prev <= Invalid;
+                new_i = 0;
+                outFifo.enq(Invalid);
+            end
+            else begin
+                let current = validValue(in);
+                
+                if (isValid(prev)) begin
+                    let prev_val = validValue(prev);
+                    
                     // Verifica se houve transição
-                    if (prevBit != bit) begin
-                        // Houve transição! Realinha a fase
-                        if (i == 4) begin
-                            // Transição no meio do símbolo (fase correta)
-                            // Produz saída baseada na direção da transição
-                            if (prevBit == 0 && bit == 1) begin
-                                outFifo.enq(Valid(1)); // 0->1 = bit 1
-                            end else begin
-                                outFifo.enq(Valid(0)); // 1->0 = bit 0
+                    if (current != prev_val) begin
+                        // Ajusta a fase baseado na posição atual
+                        if (i % 4 == 3) begin
+                            // Se estamos em posição 3 ou 7, avança para 4 ou 0
+                            new_i = i + 1;
+                        end 
+                        if (i % 4 == 1) begin
+                            // Se estamos em posição 1 ou 5, volta para 0 ou 4
+                            new_i = i - 1;
+                        end 
+                        
+                        // Se após ajuste estamos no meio do símbolo (posição 4)
+                        if (new_i == 4) begin
+                            if (prev_val == 0 && current == 1) begin
+                                // Transição 0->1 = bit 1
+                                output_val = 1;
+                                outFifo.enq(Valid(output_val));
+                            end else if (prev_val == 1 && current == 0) begin
+                                // Transição 1->0 = bit 0
+                                output_val = 0;
+                                outFifo.enq(Valid(output_val));
                             end
                         end
-                        // Realinha a fase para o próximo símbolo
-                        i <= 0;
                     end
                 end
                 
-                // Atualiza o bit anterior e incrementa contador de fase
-                prev <= Valid(bit);
-                i <= i + 1;
-                
-                // Reseta contador se chegou ao fim do ciclo (8 amostras)
-                if (i == 7) begin
-                    i <= 0;
-                end
-            end else begin
-                // Recebeu Invalid - fim do quadro
-                // Reinicia estado e repassa Invalid
-                prev <= Invalid;
-                i <= 0;
-                outFifo.enq(Invalid);
+                // Atualiza o bit anterior
+                prev <= Valid(current);
+                // Incrementa contador (será limitado pelo módulo 8 implícito do Bit#(3))
+                new_i = new_i + 1;
             end
+            
+            // Atualiza o contador de fase
+            i <= new_i;
         endmethod
     endinterface
 
