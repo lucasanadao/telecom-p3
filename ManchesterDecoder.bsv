@@ -45,5 +45,6 @@ module mkManchesterDecoder(FrameBitProcessor);
             end
         endmethod
     endinterface
-    interface out = toGet(outFifo);
+
+interface out = toGet(outFifo);
 endmodule
